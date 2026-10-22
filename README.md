@@ -2,19 +2,32 @@
 
 手机优先的演员私人试演本。React + TypeScript + Vite，原生 IndexedDB 保存文字与视频 Blob；没有业务后台、AI 自动解读、统计追踪或上传接口。
 
+## 手机网页
+
+这是 H5 网页，不是需要下载安装的原生 App。
+
+- 手机网页地址：<https://zhanyina1205-ai.github.io/one-scene/>
+- 公开源码：<https://github.com/zhanyina1205-ai/one-scene>
+- iPhone：用 Safari 打开，点“分享 → 添加到主屏幕”。
+- Android：用 Chrome 打开，可在浏览器菜单选择“添加到主屏幕”；具体菜单随浏览器版本不同。
+- 配置了独立窗口展示、主屏图标和手机视口，但没有离线缓存；添加到主屏幕不代表备份或离线可用。主屏模式仍需真机验证。
+
+GitHub 仓库和 Pages 程序是公开的，首次提供的只有虚构演示。你输入的剧本、笔记和视频不会随 GitHub 提交或 Pages 发布上传。原私有托管站点与 GitHub Pages 是不同来源，数据不会自动迁移，请固定使用一个入口。
+
 ## 运行
 
 需要 Node.js 22.12+ 或 24+。
 
 ```sh
-cd "/Users/zhanyina/Documents/ChatGPT/小工具/one-scene"
+git clone https://github.com/zhanyina1205-ai/one-scene.git
+cd one-scene
 npm ci
 npm run dev
 ```
 
 电脑打开 `http://localhost:5188/`。手机与电脑同一局域网时，打开终端输出的 Network 地址。电脑需保持运行且防火墙允许访问。
 
-手机局域网 **HTTP 只能录入、导入和回放，不能保证网页摄录**。手机直接录制请用最终交付的私有 HTTPS 网址，在正常模式的 Safari / Chrome 中打开。不要把手机自己的 localhost 当作电脑地址。私有托管访问需要网站所有者账号。
+手机局域网 **HTTP 只能录入、导入和回放，不能保证网页摄录**。手机直接录制请用 HTTPS 手机网页，在正常模式的 Safari / Chrome 中打开。不要把手机自己的 localhost 当作电脑地址。原私有托管入口仍需网站所有者账号。
 
 ```sh
 npm test
@@ -23,6 +36,20 @@ npm run preview
 ```
 
 生产输出在 `dist/`，可部署到 HTTPS 静态托管。所有业务数据仍留在访问网站的浏览器内；本地、线上、不同浏览器和不同设备之间不会同步。
+
+## GitHub 同步与发布
+
+推送到 `main` 会执行 `.github/workflows/pages.yml`：安装锁定依赖、运行测试、构建、发布 `dist/` 到 GitHub Pages。拉取请求只做测试构建，不发布。也可以在 Actions 中手动运行该工作流。
+
+```sh
+git add .
+git commit -m "Update mobile web app"
+git push origin main
+```
+
+发布前检查暂存文件，勿提交真实剧本、视频、个人笔记或密钥。视频、数据库、备份目录和 `.env` 默认忽略。浏览器里的 IndexedDB 不在源码目录中，GitHub 同步的是代码，不是用户数据。
+
+Vite 使用相对资源路径；根域名与 `/one-scene/` 子路径都能部署，主页图标和 manifest 也使用相对路径。没有配置云端数据同步或自动双向合并源码。
 
 ## 已实现
 

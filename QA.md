@@ -1,5 +1,14 @@
 # MVP 验收记录
 
+## 手机网页与 GitHub 适配（2026-10-23）
+
+- 新增主屏窗口配置、180 / 192 / 512px PNG 图标、相对路径 manifest 与资源路径，适配 GitHub Pages 的 `/one-scene/` 子目录。
+- 本地生产构建在 `/one-scene/` 子路径打开成功，实际点击“戏前卡 → 去试一遍”能进入对应场次；390px 下 clientWidth=scrollWidth=375，无横向溢出。
+- 读到的 manifest 与 iPhone 主屏图标地址都包含 `/one-scene/`，不是错误的域名根路径。
+- 自动化验证增至18项，全部通过；TypeScript 与 Vite 生产构建、`git diff --check` 均通过。
+- 配置 GitHub Actions 测试构建与 Pages 发布。线上发布是否成功以 GitHub Actions 的实际运行结果为准，不将仅存在配置文件当作发布成功。
+- 本次未验证真实 iOS / Android 添加到主屏、系统软键盘或摄像头；仍不提供离线缓存或跨设备数据同步。
+
 日期：2026-10-23（北京时间）。浏览器：Codex 内置浏览器的真实网页预览；不是 iPhone 或 Android 真机。
 
 ## 实际浏览器操作
