@@ -1,4 +1,4 @@
-name: Test and publish mobile web
+name: Test and publish app and proposal
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
-      - name: Build mobile web
+      - name: Build app and proposal
         run: npm run build
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
@@ -49,6 +49,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy mobile web to GitHub Pages
+      - name: Deploy app and proposal to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

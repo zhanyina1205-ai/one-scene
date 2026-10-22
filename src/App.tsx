@@ -73,6 +73,7 @@ export function App() {
         <button className="new-scene-button" onClick={() => setEditor('new')}><Plus size={18} />新增一个场次 <ArrowUpRight size={18} /></button>
         <div className="quiet-message"><span className="mini-line" /><p>不是标准答案，<br />是你自己的处理。</p></div>
         <button className="privacy-inline" onClick={() => setPrivacy(true)}><ShieldCheck size={15} />仅保存在当前设备 · 不默认上传 <CircleHelp size={14} /></button>
+        <a className="text-button subtle" href="./proposal/" target="_blank" rel="noopener noreferrer">了解「这一场」 · 产品提案 <ArrowUpRight size={14} /></a>
       </div> : <>
         {scene && page !== 'history' && <label className="scene-selector"><span>当前场次</span><select value={scene.id} onChange={async event => { const next = scenes.find(item => item.id === event.target.value); if (next && await mayLeave()) { setSelected(next.id); scrollTop() } }}>{scenes.map(item => <option key={item.id} value={item.id}>{sceneLabel(item)} · {item.title}</option>)}</select></label>}
         {page === 'history' ? <History key={project.id} projectId={project.id} onOpen={next => void go('scene', next)} onContinue={async session => {

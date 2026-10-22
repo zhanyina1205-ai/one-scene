@@ -7,6 +7,7 @@
 这是 H5 网页，不是需要下载安装的原生 App。
 
 - 手机网页地址：<https://zhanyina1205-ai.github.io/one-scene/>
+- 提案演示网页：<https://zhanyina1205-ai.github.io/one-scene/proposal/>
 - 公开源码：<https://github.com/zhanyina1205-ai/one-scene>
 - iPhone：用 Safari 打开，点“分享 → 添加到主屏幕”。
 - Android：用 Chrome 打开，可在浏览器菜单选择“添加到主屏幕”；具体菜单随浏览器版本不同。
@@ -39,7 +40,11 @@ npm run preview
 
 ## GitHub 同步与发布
 
-推送到 `main` 会执行 `.github/workflows/pages.yml`：安装锁定依赖、运行测试、构建、发布 `dist/` 到 GitHub Pages。拉取请求只做测试构建，不发布。也可以在 Actions 中手动运行该工作流。
+推送到 `main` 会执行 `.github/workflows/pages.yml`：安装锁定依赖、运行小工具与提案测试、构建两个网页、发布 `dist/` 到 GitHub Pages。拉取请求只做测试构建，不发布。也可以在 Actions 中手动运行该工作流。
+
+提案源码和 AI 情境配图放在 `proposal/`，不包含原私有站点的身份配置、访问凭据或个人素材。`npm run build` 同时构建小工具和自包含提案 HTML，将后者放入 `dist/proposal/index.html`。修改 `proposal/source/` 后按同一流程提交发布即可；原 `one-scene-proposal` 本地目录和私有预览站点不受此次发布影响。
+
+小工具保持原来的网址和数据库名称，不更改或清理已保存资料。提案只提供虚构交互讲解，不读取或写入小工具的 IndexedDB。它与小工具现在同源，同源页面在技术上并不是浏览器安全隔离的两个空间。
 
 ```sh
 git add .

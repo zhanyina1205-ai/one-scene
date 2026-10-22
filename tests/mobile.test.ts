@@ -34,4 +34,11 @@ describe('手机网页与子路径部署', () => {
     expect(html).toContain('href="./icons/icon-180.png"')
     expect(html).toContain('href="./manifest.webmanifest"')
   })
+  it('提案入口在根目录和GitHub Pages子路径都指向独立页面', () => {
+    const source = readFileSync(resolve(root, 'src/App.tsx'), 'utf8')
+    expect(source).toContain('href="./proposal/" target="_blank" rel="noopener noreferrer"')
+    for (const base of ['https://example.test/', 'https://example.test/one-scene/']) {
+      expect(new URL('./proposal/', base).href).toBe(`${base}proposal/`)
+    }
+  })
 })
