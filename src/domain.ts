@@ -1,4 +1,4 @@
-export type Page = 'today' | 'scene' | 'lab' | 'history'
+export type Page = 'today' | 'rehearse' | 'changes' | 'scene' | 'lab' | 'history'
 export type TakeKey = 'A' | 'B'
 export type Choice = TakeKey | 'both'
 export type KnowledgeKind = 'known' | 'belief' | 'pending'
@@ -23,6 +23,7 @@ export interface Dialogue {
   id: string
   kind: 'self' | 'other' | 'action'
   text: string
+  speaker?: string
 }
 
 export interface Scene {
@@ -42,6 +43,30 @@ export interface Scene {
   dialogue: Dialogue[]
   changes: string
   updatedAt: string
+  want?: string
+  turn?: string
+  practiceRole?: string
+}
+
+export interface PracticeRange { start: number; end: number }
+export interface PracticeBookmark {
+  sceneId: string
+  version: string
+  script: string
+  range: PracticeRange
+  position: number
+  side: 'self' | 'other'
+  hidden: boolean
+  loop: boolean
+  rate: number
+  updatedAt: string
+}
+export interface ScriptRevision {
+  id: string
+  sceneId: string
+  before: Scene
+  after: Scene
+  createdAt: string
 }
 
 export interface Take {
@@ -82,6 +107,8 @@ export interface Workspace {
   sessions: Session[]
   notes: Note[]
   selectedProjectId: string
+  practice?: Record<string, PracticeBookmark>
+  revisions?: ScriptRevision[]
 }
 
 export interface MediaAsset {
@@ -95,7 +122,7 @@ export interface MediaAsset {
 
 export const uid = () => crypto.randomUUID()
 export const timestamp = () => new Date().toISOString()
-export const sceneLabel = (scene: Scene) => `第${scene.episode || '—'}集 · ${scene.number || '—'}场`
+export const sceneLabel = (scene: Scene) => !scene.episode && !scene.number ? '随手练习' : `第${scene.episode || '—'}集 · ${scene.number || '—'}场`
 export const choiceLabel = (choice: Choice) => choice === 'both' ? '保留两版 · 暂不决定' : `选择 ${choice} 版`
 export const dateLabel = (value: string) => new Intl.DateTimeFormat('zh-CN', {
   month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
@@ -106,6 +133,7 @@ export const effectiveKnowledge = (item: Knowledge): KnowledgeKind =>
 export const sceneRevisionChanged = (snapshot: Scene, current: Scene): boolean =>
   snapshot.version !== current.version || snapshot.original !== current.original || snapshot.before !== current.before ||
   snapshot.beforeSource !== current.beforeSource || snapshot.changes !== current.changes ||
+  snapshot.want !== current.want || snapshot.turn !== current.turn || snapshot.practiceRole !== current.practiceRole ||
   JSON.stringify(snapshot.dialogue) !== JSON.stringify(current.dialogue) || JSON.stringify(snapshot.knowledge) !== JSON.stringify(current.knowledge)
 
 export function createScene(projectId: string): Scene {
@@ -131,7 +159,7 @@ export function saveSession(draft: Draft, project: Project): Session {
   }
   return {
     ...structuredClone(draft), id: uid(), savedAt: timestamp(),
-    projectTitle: project.title, role: project.role,
+    projectTitle: project.title, role: draft.scene.practiceRole || project.role,
   }
 }
 
@@ -149,10 +177,14 @@ export function referencedMedia(workspace: Workspace): Set<string> {
 export function removeScene(workspace: Workspace, sceneId: string): Workspace {
   const drafts = { ...workspace.drafts }
   delete drafts[sceneId]
+  const practice = { ...workspace.practice }
+  delete practice[sceneId]
   return {
     ...workspace, scenes: workspace.scenes.filter(scene => scene.id !== sceneId), drafts,
     sessions: workspace.sessions.filter(session => session.sceneId !== sceneId),
     notes: workspace.notes.filter(note => note.sceneId !== sceneId),
+    practice,
+    revisions: workspace.revisions?.filter(revision => revision.sceneId !== sceneId),
   }
 }
 

@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { createScene, describeError, effectiveKnowledge, timestamp, uid, type Scene } from './domain'
 import { useWorkspace } from './store'
+import { parseDialogue } from './practice'
 
 export function SceneEditor({ initial, projectId, onClose }: { initial?: Scene; projectId: string; onClose: (scene?: Scene) => void }) {
-  const { mutate } = useWorkspace()
+  const { data, mutate } = useWorkspace()
+  const role = initial?.practiceRole || data.projects.find(project => project.id === projectId)?.role || '我'
   const [scene, setScene] = useState<Scene>(() => structuredClone(initial || createScene(projectId)))
   const [paste, setPaste] = useState('')
   const [busy, setBusy] = useState(false)
@@ -18,7 +20,7 @@ export function SceneEditor({ initial, projectId, onClose }: { initial?: Scene; 
     <form onSubmit={async event => {
       event.preventDefault(); setBusy(true); setError('')
       try {
-        if (!scene.episode.trim() || !scene.number.trim() || !scene.title.trim() || !scene.version.trim()) throw new Error('请填写有效的集数、场号、标题和剧本版本。')
+        if (!scene.title.trim() || !scene.version.trim()) throw new Error('请填写有效的标题和剧本版本；集数和场号可暂不填写。')
         if (initial && initial.version !== scene.version && !scene.changes.trim()) throw new Error('剧本版本已改变，请补充版本变化说明。')
         const saved = { ...scene, updatedAt: timestamp() }
         await mutate(workspace => ({ ...workspace, scenes: initial ? workspace.scenes.map(item => item.id === saved.id ? saved : item) : [...workspace.scenes, saved] }))
@@ -27,7 +29,7 @@ export function SceneEditor({ initial, projectId, onClose }: { initial?: Scene; 
     }}>
       <fieldset disabled={busy}>
         <section className="panel form-section"><h2>场次与版本</h2>
-          <div className="two-col"><label>集数<input required value={scene.episode} onChange={event => patch({ episode: event.target.value })} placeholder="例如 12" /></label><label>场号<input required value={scene.number} onChange={event => patch({ number: event.target.value })} placeholder="例如 18" /></label></div>
+          <div className="two-col"><label>集数（可选）<input value={scene.episode} onChange={event => patch({ episode: event.target.value })} placeholder="例如 12" /></label><label>场号（可选）<input value={scene.number} onChange={event => patch({ number: event.target.value })} placeholder="例如 18" /></label></div>
           <label>场次标题<input required value={scene.title} onChange={event => patch({ title: event.target.value })} placeholder="这一场发生什么" /></label>
           <div className="two-col"><label>地点<input value={scene.location} onChange={event => patch({ location: event.target.value })} placeholder="旧宅书房" /></label><label>日夜 / 内外<input value={scene.time} onChange={event => patch({ time: event.target.value })} placeholder="夜 · 内" /></label></div>
           <label>对手角色<input value={scene.partner} onChange={event => patch({ partner: event.target.value })} placeholder="角色名，可填写多位" /></label>
@@ -54,11 +56,10 @@ export function SceneEditor({ initial, projectId, onClose }: { initial?: Scene; 
           <label>本场原文<textarea rows={7} value={scene.original} onChange={event => patch({ original: event.target.value })} placeholder="粘贴你有权使用的台词与动作说明" /></label>
           <details><summary>按说话人拆分练习段落</summary><p className="hint">逐行填写“我：”“对手：”“动作：”。只按这些标记拆分，不猜测说话人。可只粘贴本次想练的几句。</p><label>分行台词<textarea rows={5} value={paste} onChange={event => setPaste(event.target.value)} placeholder={'我：请你告诉我。\n对手：你已经有答案了。\n动作：她停在门口。'} /></label><button type="button" className="button secondary" onClick={() => {
             if (!paste.trim()) return
+            const parsed = parseDialogue(paste, role)
+            if (parsed.errors.length) { setError(parsed.errors.slice(0, 6).join('；')); return }
             if (scene.dialogue.length && !window.confirm('用这段文本替换当前分行台词？')) return
-            patch({ dialogue: paste.split('\n').filter(line => line.trim()).map(line => {
-              const match = line.match(/^(我|对手|动作)\s*[:：]\s*(.*)$/)
-              return { id: uid(), kind: match?.[1] === '我' ? 'self' : match?.[1] === '对手' ? 'other' : 'action', text: match ? match[2] : line }
-            }) })
+            setError(''); patch({ dialogue: parsed.lines })
           }}>按标记拆分</button></details>
           {scene.dialogue.map((line, index) => <div className="dialogue-editor" key={line.id}><div className="row-between"><label>第{index + 1}段<select value={line.kind} onChange={event => patch({ dialogue: scene.dialogue.map(entry => entry.id === line.id ? { ...entry, kind: event.target.value as typeof line.kind } : entry) })}><option value="self">本人台词</option><option value="other">对手台词</option><option value="action">动作说明</option></select></label><button type="button" className="icon-button" aria-label={`删除第${index + 1}段`} onClick={() => patch({ dialogue: scene.dialogue.filter(entry => entry.id !== line.id) })}><Trash2 size={16} /></button></div><label>台词 / 动作<textarea value={line.text} onChange={event => patch({ dialogue: scene.dialogue.map(entry => entry.id === line.id ? { ...entry, text: event.target.value } : entry) })} /></label></div>)}
           <button type="button" className="text-button" onClick={() => patch({ dialogue: [...scene.dialogue, { id: uid(), kind: 'self', text: '' }] })}><Plus size={16} />添加一段台词</button>

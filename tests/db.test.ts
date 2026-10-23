@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDatabase, openDatabase, readMedia, readWorkspace, writeWorkspace } from '../src/db'
 import { createDraft, saveSession, type MediaAsset } from '../src/domain'
+import { applyRevision, dialogueKey } from '../src/practice'
 
 beforeEach(async () => {
   await closeDatabase()
@@ -14,6 +15,23 @@ beforeEach(async () => {
 const media = (id: string): MediaAsset => ({ id, blob: new Blob([`test-${id}`], { type: 'video/mp4' }), name: `${id}.mp4`, size: 6, type: 'video/mp4', createdAt: new Date().toISOString() })
 
 describe('IndexedDB文字与视频原子保存', () => {
+  it('旧版工作区无需新字段即可打开，升级保存位置和改词后仍保留历史与视频', async () => {
+    const original = await readWorkspace(); const scene = original.scenes[0]
+    const draft = createDraft(scene); draft.choice = 'A'; draft.takes.A.intent = '旧处理'; draft.takes.A.mediaId = 'legacy'
+    original.drafts[scene.id] = draft; original.sessions.push(saveSession(draft, original.projects[0]))
+    await writeWorkspace(original, [media('legacy')]); await closeDatabase()
+    const legacy = await readWorkspace(); expect(legacy.practice).toBeUndefined(); expect(legacy.revisions).toBeUndefined()
+    const lines = structuredClone(scene.dialogue); lines[0].text = '新版台词'
+    const next = applyRevision(legacy, scene, lines, '新版台词', 'v4').workspace
+    next.practice = { [scene.id]: { sceneId: scene.id, version: 'v4', script: dialogueKey(lines), range: { start: 0, end: lines.length - 1 }, position: 1, side: 'self', hidden: true, loop: false, rate: 1, updatedAt: '' } }
+    await writeWorkspace(next); await closeDatabase()
+    const restored = await readWorkspace()
+    expect(restored.practice![scene.id].position).toBe(1)
+    expect(restored.revisions![0].before.version).toBe('v3')
+    expect(restored.sessions[0].scene.version).toBe('v3')
+    expect(restored.drafts[scene.id].takes.A.intent).toBe('旧处理')
+    expect(await (await readMedia('legacy'))?.blob.text()).toBe('test-legacy')
+  })
   it('重开数据库能恢复两个视频、A选择和理由，其他场次不混入', async () => {
     const data = await readWorkspace(); const draft = createDraft(data.scenes[0])
     draft.takes.A = { intent: '先听', reflection: '有等待', mediaId: 'a' }
@@ -56,5 +74,21 @@ describe('IndexedDB文字与视频原子保存', () => {
     await expect(writeWorkspace(next)).rejects.toMatchObject({ name: 'QuotaExceededError' })
     spy.mockRestore()
     expect((await readWorkspace()).projects[0].title).toBe(original.projects[0].title)
+  })
+  it('新版改词保存遇到空间不足时不会留下半份新版本或丢掉旧视频', async () => {
+    const original = await readWorkspace(); const scene = original.scenes[0]
+    const draft = createDraft(scene); draft.choice = 'A'; draft.takes.A.intent = '旧处理'; draft.takes.A.mediaId = 'preserved'
+    original.drafts[scene.id] = draft; original.sessions.push(saveSession(draft, original.projects[0]))
+    await writeWorkspace(original, [media('preserved')])
+    const lines = structuredClone(scene.dialogue); lines[0].text = '无法提交的新句'
+    const next = applyRevision(original, scene, lines, '新原文', 'v4').workspace
+    const database = await openDatabase()
+    const spy = vi.spyOn(database, 'transaction').mockImplementationOnce(() => { throw new DOMException('full', 'QuotaExceededError') })
+    await expect(writeWorkspace(next)).rejects.toMatchObject({ name: 'QuotaExceededError' })
+    spy.mockRestore()
+    const restored = await readWorkspace()
+    expect(restored.scenes[0].version).toBe('v3'); expect(restored.revisions).toBeUndefined()
+    expect(restored.sessions[0].takes.A.mediaId).toBe('preserved')
+    expect(await readMedia('preserved')).toBeDefined()
   })
 })
