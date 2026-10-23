@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowUpRight, BookOpen, Clapperboard, PenLine, Trash2 } from 'lucide-react'
 import { choiceLabel, dateLabel, describeError, effectiveKnowledge, sceneLabel, sceneRevisionChanged, timestamp, uid, type Scene, type Session } from './domain'
 import { useWorkspace } from './store'
@@ -20,7 +20,7 @@ export function SessionSummary({ session }: { session: Session }) {
   </div>
 }
 
-export function SceneCard({ scene, onTry, onEdit }: { scene: Scene; onTry: () => void; onEdit: () => void }) {
+export function SceneCard({ scene, onTry, onEdit, practice, registerGuard }: { scene: Scene; onTry: () => void; onEdit: () => void; practice?: ReactNode; registerGuard?: (guard: (() => Promise<boolean>) | null) => void }) {
   const { data, mutate, notify } = useWorkspace()
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,13 +32,20 @@ export function SceneCard({ scene, onTry, onEdit }: { scene: Scene; onTry: () =>
   const sessions = data.sessions.filter(item => item.sceneId === scene.id).sort((first, second) => second.savedAt.localeCompare(first.savedAt))
   const notes = data.notes.filter(item => item.sceneId === scene.id).sort((first, second) => second.createdAt.localeCompare(first.createdAt))
   const latest = sessions[0]
+  useEffect(() => {
+    registerGuard?.(async () => !busy && (!note.trim() || window.confirm('随手记尚未保存，确定放弃并离开这一场？')))
+    const unload = (event: BeforeUnloadEvent) => { if (note.trim() || busy) { event.preventDefault(); event.returnValue = '' } }
+    window.addEventListener('beforeunload', unload)
+    return () => { registerGuard?.(null); window.removeEventListener('beforeunload', unload) }
+  }, [registerGuard, busy, note])
   return <div className="card-stack">
     <section className="scene-hero"><div className="row-between"><span className="eyebrow">{sceneLabel(scene)}</span><span className="version-chip">{scene.version}</span></div><h1>{scene.title}</h1><p>{scene.location || '地点未填'} <span>·</span> {scene.time} <span>·</span> {scene.partner || '对手未填'}</p><button className="text-button light" onClick={onEdit}>编辑处境与原文 <ArrowUpRight size={15} /></button></section>
-    <div className="quick-actions"><button onClick={() => { setOriginalOpen(true); window.setTimeout(() => originalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }}><BookOpen size={20} />看原文</button><button onClick={onTry}><Clapperboard size={20} />去试一遍</button><button onClick={() => { setNoteOpen(true); window.setTimeout(() => noteRef.current?.focus(), 50) }}><PenLine size={20} />随手记</button></div>
+    <div className="quick-actions"><button onClick={() => { setOriginalOpen(true); window.setTimeout(() => originalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }}><BookOpen size={20} />看原文</button><button onClick={onTry}><Clapperboard size={20} />{practice ? '去对词，保留这张卡' : '去试一遍'}</button><button onClick={() => { setNoteOpen(true); window.setTimeout(() => noteRef.current?.focus(), 50) }}><PenLine size={20} />随手记</button></div>
     <Preparation scene={scene} />
+    {practice}
     <section className="panel"><div className="section-heading"><span className="section-number">03</span><h2>我的处理</h2><span className="badge">私人理解</span></div>
       {latest ? <>{sceneRevisionChanged(latest.scene, scene) && <p className="warning">原文、处境或版本已更新。旧处理对应 {latest.scene.version}，当前为 {scene.version}。请重新检查，未自动迁移。</p>}<SessionSummary session={latest} />{sessions.length > 1 && <p className="hint">另有 {sessions.length - 1} 条历史，可在“我的处理”查看。</p>}</> : <div className="empty-small"><p>还没有保存处理。</p><p className="hint">不必急着决定，试过的两个想法也可以一起留下。</p></div>}
-      <button className="button primary wide" onClick={onTry}>带着这场，去试一遍 <ArrowUpRight size={18} /></button>
+      <button className="button primary wide" onClick={onTry}>{practice ? '带着自己的处理，再对一遍词' : '带着这场，去试一遍'} <ArrowUpRight size={18} /></button>
       <details open={noteOpen} onToggle={event => setNoteOpen(event.currentTarget.open)}><summary>随手记 {notes.length ? `· ${notes.length}` : ''}</summary><form onSubmit={async event => {
         event.preventDefault(); if (!note.trim()) return; setBusy(true); setError('')
         try { await mutate(workspace => ({ ...workspace, notes: [...workspace.notes, { id: uid(), sceneId: scene.id, version: scene.version, text: note.trim(), createdAt: timestamp() }] })); setNote(''); notify('笔记已保存到当前场次。') } catch (reason) { setError(describeError(reason)) } finally { setBusy(false) }
